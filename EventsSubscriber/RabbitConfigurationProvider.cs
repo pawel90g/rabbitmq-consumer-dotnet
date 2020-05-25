@@ -17,7 +17,5 @@ namespace EventsSubscriber
         public string GetPassword() => config.Password;
 
         public string GetUserName() => config.UserName;
-
-        public bool IsEnabled() => config.Enabled;
     }
 }

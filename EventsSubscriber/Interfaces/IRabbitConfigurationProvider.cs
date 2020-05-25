@@ -5,7 +5,6 @@ namespace EventsSubscriber.Interfaces
         string GetHostName();
         string GetUserName();
         string GetPassword();
-        bool IsEnabled();
         ExchangeConfig GetExchangeConfig();
     }
 }

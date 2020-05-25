@@ -10,7 +10,7 @@ using RabbitMQ.Client.Events;
 
 namespace EventsSubscriber
 {
-    public class EventBusSubscriber : IAsyncEventSubscriber
+    public class EventBusSubscriber : IEventBusSubscriber
     {
         private readonly IRabbitConfigurationProvider rabbitConfigurationProvider;
         private readonly IRabbitConnection rabbitConnection;
@@ -27,43 +27,77 @@ namespace EventsSubscriber
             this.rabbitConnection = rabbitConnection;
         }
 
-        public async Task SubscribeAsync<TEvent>(string severity)
+        public void Subscribe(string queue, string routingKey)
+        {
+            using (var channel = rabbitConnection.GetChannel())
+            {
+                channel.QueueDeclare(queue: queue,
+                                     durable: false,
+                                     exclusive: false,
+                                     autoDelete: false,
+                                     arguments: null);
+
+                var consumer = new EventingBasicConsumer(channel);
+                consumer.Received += (model, ea) =>
+                {
+                    var body = ea.Body;
+                    var message = Encoding.UTF8.GetString(ea.Body.ToArray());
+                };
+                channel.BasicConsume(queue: queue,
+                                     autoAck: true,
+                                     consumer: consumer);
+            }
+        }
+
+        public void Subscribe<TEvent>(string routingKey)
             where TEvent : EventBase
         {
-            if (!rabbitConfigurationProvider.IsEnabled())
-            {
-                logger.LogInformation("RabbitMQ integration disabled");
-                return;
-            }
-
             var exchangeCfg = rabbitConfigurationProvider.GetExchangeConfig();
 
+            var exchangeName = GetExchangeName<TEvent>();
+            var channel = rabbitConnection.GetChannel();
 
-            await Task.Run(() =>
+            channel.ExchangeDeclare(exchangeName, "direct", durable: false, autoDelete: false, arguments: null);
+            var queueName = channel.QueueDeclare().QueueName;
+
+            channel.QueueBind(queue: queueName,
+                          exchange: exchangeName,
+                          routingKey: routingKey);
+
+            var consumer = new EventingBasicConsumer(channel);
+            consumer.Received += (model, ea) =>
+            {
+                var body = DeserializeEvent<TEvent>(ea.Body.ToArray());
+            };
+
+            channel.BasicConsume(queue: queueName,
+                                 autoAck: true,
+                                 consumer: consumer);
+        }
+
+        public Task SubscribeAsync(string queue, string routingKey)
+        {
+            return Task.Run(() =>
             {
                 try
                 {
-                    var exchangePrefix = string.IsNullOrEmpty(exchangeCfg.NamePrefix) ? "" : $"{exchangeCfg.NamePrefix}_";
-                    var exchangeName = $"{exchangePrefix}{GetExchangeName<TEvent>()}";
-                    var channel = rabbitConnection.GetChannel();
+                    Subscribe(queue, routingKey);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError("Error occures during event publishing", ex);
+                }
+            });
+        }
 
-                    channel.ExchangeDeclare(exchangeName, "direct", durable: false, autoDelete: false, arguments: null);
-                    var queueName = channel.QueueDeclare().QueueName;
-
-                    channel.QueueBind(queue: queueName,
-                                  exchange: exchangeName,
-                                  routingKey: severity);
-
-                    var consumer = new EventingBasicConsumer(channel);
-                    consumer.Received += (model, ea) =>
-                    {
-                        var body = DeserializeEvent<TEvent>(ea.Body.ToArray());
-                        var routingKey = ea.RoutingKey;
-                    };
-
-                    channel.BasicConsume(queue: queueName,
-                                         autoAck: true,
-                                         consumer: consumer);
+        public Task SubscribeAsync<TEvent>(string routingKey)
+            where TEvent : EventBase
+        {
+            return Task.Run(() =>
+            {
+                try
+                {
+                    Subscribe<TEvent>(routingKey);
                 }
                 catch (Exception ex)
                 {
@@ -81,5 +115,6 @@ namespace EventsSubscriber
 
         private static string GetExchangeName(EventBase @event) => @event.GetType().FullName;
         private static string GetExchangeName<TEvent>() where TEvent : EventBase => typeof(TEvent).FullName;
+
     }
 }
