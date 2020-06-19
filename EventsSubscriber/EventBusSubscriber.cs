@@ -12,22 +12,19 @@ namespace EventsSubscriber
 {
     public class EventBusSubscriber : IEventBusSubscriber
     {
-        private readonly IRabbitConfigurationProvider rabbitConfigurationProvider;
         private readonly IRabbitConnection rabbitConnection;
         private readonly ILogger<EventBusSubscriber> logger;
 
         public EventBusSubscriber(
-            IRabbitConfigurationProvider rabbitConfigurationProvider,
             IRabbitConnection rabbitConnection,
             ILogger<EventBusSubscriber> logger
             )
         {
             this.logger = logger;
-            this.rabbitConfigurationProvider = rabbitConfigurationProvider;
             this.rabbitConnection = rabbitConnection;
         }
 
-        public void Subscribe(string queue, string routingKey)
+        public void Subscribe(string queue, Action<string> messageProcessor)
         {
             using (var channel = rabbitConnection.GetChannel())
             {
@@ -40,20 +37,20 @@ namespace EventsSubscriber
                 var consumer = new EventingBasicConsumer(channel);
                 consumer.Received += (model, ea) =>
                 {
-                    var body = ea.Body;
                     var message = Encoding.UTF8.GetString(ea.Body.ToArray());
+                    messageProcessor(message);
                 };
                 channel.BasicConsume(queue: queue,
                                      autoAck: true,
                                      consumer: consumer);
+                                     
+                Console.ReadLine();
             }
         }
 
-        public void Subscribe<TEvent>(string routingKey)
+        public void Subscribe<TEvent>(string routingKey, Action<TEvent> messageProcessor)
             where TEvent : EventBase
         {
-            var exchangeCfg = rabbitConfigurationProvider.GetExchangeConfig();
-
             var exchangeName = GetExchangeName<TEvent>();
             var channel = rabbitConnection.GetChannel();
 
@@ -68,6 +65,7 @@ namespace EventsSubscriber
             consumer.Received += (model, ea) =>
             {
                 var body = DeserializeEvent<TEvent>(ea.Body.ToArray());
+                messageProcessor(body);
             };
 
             channel.BasicConsume(queue: queueName,
@@ -75,33 +73,33 @@ namespace EventsSubscriber
                                  consumer: consumer);
         }
 
-        public Task SubscribeAsync(string queue, string routingKey)
+        public Task SubscribeAsync(string queue, Action<string> messageProcessor)
         {
             return Task.Run(() =>
             {
                 try
                 {
-                    Subscribe(queue, routingKey);
+                    Subscribe(queue, messageProcessor);
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError("Error occures during event publishing", ex);
+                    logger.LogError("Error occures during event subscribing", ex);
                 }
             });
         }
 
-        public Task SubscribeAsync<TEvent>(string routingKey)
+        public Task SubscribeAsync<TEvent>(string routingKey, Action<TEvent> messageProcessor)
             where TEvent : EventBase
         {
             return Task.Run(() =>
             {
                 try
                 {
-                    Subscribe<TEvent>(routingKey);
+                    Subscribe<TEvent>(routingKey, messageProcessor);
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError("Error occures during event publishing", ex);
+                    logger.LogError("Error occures during event subscribing", ex);
                 }
             });
         }
@@ -116,5 +114,6 @@ namespace EventsSubscriber
         private static string GetExchangeName(EventBase @event) => @event.GetType().FullName;
         private static string GetExchangeName<TEvent>() where TEvent : EventBase => typeof(TEvent).FullName;
 
+        public void Dispose() => rabbitConnection?.Dispose();
     }
 }

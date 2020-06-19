@@ -8,7 +8,6 @@ namespace EventsSubscriber
         private readonly IRabbitConfigurationProvider rabbitConfigurationProvider;
 
         private IConnection connection;
-        private IModel model;
 
         public RabbitConnection(IRabbitConfigurationProvider rabbitConfigurationProvider)
         {
@@ -28,10 +27,7 @@ namespace EventsSubscriber
             connection.Dispose();
         }
 
-        public IModel GetChannel()
-        {
-            return model ?? (model = GetConnection().CreateModel());
-        }
+        public IModel GetChannel() => GetConnection().CreateModel();
 
         public IConnection GetConnection()
         {

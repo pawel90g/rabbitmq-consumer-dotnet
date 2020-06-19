@@ -10,8 +10,6 @@ namespace EventsSubscriber
             this.config = config;
         }
 
-        public ExchangeConfig GetExchangeConfig() => config.ExchangeConfig;
-
         public string GetHostName() => config.HostName;
 
         public string GetPassword() => config.Password;
