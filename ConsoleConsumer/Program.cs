@@ -22,7 +22,7 @@ namespace ConsoleConsumer
 
             var eventBusSubscriber = (IEventBusSubscriber)serviceProvider.GetService(typeof(IEventBusSubscriber));
 
-            eventBusSubscriber.Subscribe(queue, (message) =>
+            eventBusSubscriber.SubscribeQueue(queue, (message) =>
             {
                 Console.WriteLine(message);
             });

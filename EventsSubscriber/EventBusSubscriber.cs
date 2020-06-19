@@ -24,7 +24,7 @@ namespace EventsSubscriber
             this.rabbitConnection = rabbitConnection;
         }
 
-        public void Subscribe(string queue, Action<string> messageProcessor)
+        public void SubscribeQueue(string queue, Action<string> messageProcessor)
         {
             using (var channel = rabbitConnection.GetChannel())
             {
@@ -48,13 +48,36 @@ namespace EventsSubscriber
             }
         }
 
-        public void Subscribe<TEvent>(string routingKey, Action<TEvent> messageProcessor)
+        public void SubscribeExchange(string exchangeName, string routingKey, string exchangeType, Action<string> messageProcessor)
+        {
+            var channel = rabbitConnection.GetChannel();
+
+            channel.ExchangeDeclare(exchangeName, exchangeType, durable: false, autoDelete: false, arguments: null);
+            var queueName = channel.QueueDeclare().QueueName;
+
+            channel.QueueBind(queue: queueName,
+                          exchange: exchangeName,
+                          routingKey: routingKey);
+
+            var consumer = new EventingBasicConsumer(channel);
+            consumer.Received += (model, ea) =>
+            {
+                var message = Encoding.UTF8.GetString(ea.Body.ToArray());
+                messageProcessor(message);
+            };
+
+            channel.BasicConsume(queue: queueName,
+                                 autoAck: true,
+                                 consumer: consumer);
+        }
+
+        public void SubscribeExchange<TEvent>(string routingKey, string exchangeType, Action<TEvent> messageProcessor)
             where TEvent : EventBase
         {
             var exchangeName = GetExchangeName<TEvent>();
             var channel = rabbitConnection.GetChannel();
 
-            channel.ExchangeDeclare(exchangeName, "direct", durable: false, autoDelete: false, arguments: null);
+            channel.ExchangeDeclare(exchangeName, exchangeType, durable: false, autoDelete: false, arguments: null);
             var queueName = channel.QueueDeclare().QueueName;
 
             channel.QueueBind(queue: queueName,
@@ -73,13 +96,13 @@ namespace EventsSubscriber
                                  consumer: consumer);
         }
 
-        public Task SubscribeAsync(string queue, Action<string> messageProcessor)
+        public Task SubscribeQueueAsync(string queue, Action<string> messageProcessor)
         {
             return Task.Run(() =>
             {
                 try
                 {
-                    Subscribe(queue, messageProcessor);
+                    SubscribeQueue(queue, messageProcessor);
                 }
                 catch (Exception ex)
                 {
@@ -88,14 +111,29 @@ namespace EventsSubscriber
             });
         }
 
-        public Task SubscribeAsync<TEvent>(string routingKey, Action<TEvent> messageProcessor)
+        public Task SubscribeExchangeAsync(string exchangeName, string routingKey, string exchangeType, Action<string> messageProcessor)
+        {
+            return Task.Run(() =>
+            {
+                try
+                {
+                    SubscribeExchange(exchangeName, routingKey, exchangeType, messageProcessor);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError("Error occures during event subscribing", ex);
+                }
+            });
+        }
+
+        public Task SubscribeExchangeAsync<TEvent>(string routingKey, string exchangeType, Action<TEvent> messageProcessor)
             where TEvent : EventBase
         {
             return Task.Run(() =>
             {
                 try
                 {
-                    Subscribe<TEvent>(routingKey, messageProcessor);
+                    SubscribeExchange<TEvent>(routingKey, exchangeType, messageProcessor);
                 }
                 catch (Exception ex)
                 {

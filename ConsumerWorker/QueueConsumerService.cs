@@ -29,7 +29,18 @@ namespace ConsumerWorker
         public async Task StartAsync(CancellationToken cancellationToken)
         {
             Console.WriteLine("Start");
-            await eventBusSubscriber.SubscribeAsync(consumerWorkerConfigProvider.GetQueueName(), (message) => Console.WriteLine($"[Consumer {consumerWorkerConfigProvider.GetWorkerName()}] Message received: {message}"));
+            await eventBusSubscriber.SubscribeQueueAsync(consumerWorkerConfigProvider.GetQueueName(), (message) => Console.WriteLine($"[Consumer {consumerWorkerConfigProvider.GetWorkerName()}] Message received: {message}"));
+
+            // if (consumerWorkerConfigProvider.UseExchange())
+            //         await eventBusSubscriber.ExchangePublishAsync(
+            //             $"[Worker {producerWorkerConfigProvider.GetWorkerName()}] Message {++i}",
+            //             producerWorkerConfigProvider.GetExchangeName(),
+            //             producerWorkerConfigProvider.GetRoutingKey(),
+            //             producerWorkerConfigProvider.GetExchangeType());
+            //     else
+            //         await eventBusDispatcher.QueuePublishAsync(
+            //             $"[Worker {producerWorkerConfigProvider.GetWorkerName()}] Message {++i}",
+            //             producerWorkerConfigProvider.GetQueueName());
         }
 
         public Task StopAsync(CancellationToken cancellationToken)
