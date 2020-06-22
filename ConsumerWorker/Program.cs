@@ -24,8 +24,8 @@ namespace ConsumerWorker
                     var queueName = argsList.FirstOrDefault(a => a.StartsWith("queue"))?.Split("=").ElementAtOrDefault(1);
 
                     var exchangeName = argsList.FirstOrDefault(a => a.StartsWith("exchange"))?.Split("=").ElementAtOrDefault(1);
-                    var exchangeType = ExchangeType.Parse(argsList.FirstOrDefault(a => a.StartsWith("exchange"))?.Split("=").ElementAtOrDefault(1));
-                    var routingKey = ExchangeType.Parse(argsList.FirstOrDefault(a => a.StartsWith("routingKey"))?.Split("=").ElementAtOrDefault(1));
+                    var exchangeType = ExchangeType.Parse(argsList.FirstOrDefault(a => a.StartsWith("type"))?.Split("=").ElementAtOrDefault(1));
+                    var routingKey = argsList.FirstOrDefault(a => a.StartsWith("routingKey"))?.Split("=").ElementAtOrDefault(1);
 
                     var workerName = argsList.FirstOrDefault(a => a.StartsWith("worker"))?.Split("=").ElementAtOrDefault(1) ?? "Noname";
 

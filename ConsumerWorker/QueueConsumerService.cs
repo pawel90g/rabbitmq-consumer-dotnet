@@ -18,7 +18,7 @@ namespace ConsumerWorker
 
         public QueueConsumerService(
             ILogger<QueueConsumerService> logger,
-            IEventBusSubscriber eventBusSubscriber, 
+            IEventBusSubscriber eventBusSubscriber,
             IConsumerWorkerConfigProvider consumerWorkerConfigProvider)
         {
             _logger = logger;
@@ -28,19 +28,23 @@ namespace ConsumerWorker
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            Console.WriteLine("Start");
-            await eventBusSubscriber.SubscribeQueueAsync(consumerWorkerConfigProvider.GetQueueName(), (message) => Console.WriteLine($"[Consumer {consumerWorkerConfigProvider.GetWorkerName()}] Message received: {message}"));
+            if (consumerWorkerConfigProvider.UseExchange())
+            {
+                Console.WriteLine($"Start subscribing exchange: {consumerWorkerConfigProvider.GetExchangeName()}, routingKey: {consumerWorkerConfigProvider.GetRoutingKey()}, mode: {consumerWorkerConfigProvider.GetExchangeType()}");
 
-            // if (consumerWorkerConfigProvider.UseExchange())
-            //         await eventBusSubscriber.ExchangePublishAsync(
-            //             $"[Worker {producerWorkerConfigProvider.GetWorkerName()}] Message {++i}",
-            //             producerWorkerConfigProvider.GetExchangeName(),
-            //             producerWorkerConfigProvider.GetRoutingKey(),
-            //             producerWorkerConfigProvider.GetExchangeType());
-            //     else
-            //         await eventBusDispatcher.QueuePublishAsync(
-            //             $"[Worker {producerWorkerConfigProvider.GetWorkerName()}] Message {++i}",
-            //             producerWorkerConfigProvider.GetQueueName());
+                await eventBusSubscriber.SubscribeExchangeAsync(
+                    consumerWorkerConfigProvider.GetExchangeName(),
+                    consumerWorkerConfigProvider.GetRoutingKey(),
+                    consumerWorkerConfigProvider.GetExchangeType(),
+                    (message) => Console.WriteLine($"[Consumer {consumerWorkerConfigProvider.GetWorkerName()}] Message received: {message}"));
+            }
+            else
+            {
+                 Console.WriteLine($"Start subscribing queue: {consumerWorkerConfigProvider.GetQueueName()}");
+
+                await eventBusSubscriber.SubscribeQueueAsync(consumerWorkerConfigProvider.GetQueueName(),
+                  (message) => Console.WriteLine($"[Consumer {consumerWorkerConfigProvider.GetWorkerName()}] Message received: {message}"));
+            }
         }
 
         public Task StopAsync(CancellationToken cancellationToken)

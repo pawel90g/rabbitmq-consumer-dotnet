@@ -5,12 +5,12 @@
    "version": "0.2.0",
    "configurations": [
    {
-       "name": ".NET Core Launch (worker)",
+       "name": ".NET Core Launch (ConsumerWorker)",
        "type": "coreclr",
        "request": "launch",
        "preLaunchTask": "build",
        "program": "${workspaceFolder}/ConsumerWorker/bin/Debug/netcoreapp3.1/ConsumerWorker.dll",
-       "args": [],
+       "args": ["exchange=exchange1", "routingKey=rk1", "type=direct"],
        "cwd": "${workspaceFolder}/ConsumerWorker",
        "stopAtEntry": false,
        "console": "internalConsole"
